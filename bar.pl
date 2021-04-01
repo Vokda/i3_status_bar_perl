@@ -3,11 +3,12 @@
 use warnings;
 use strict;
 use Data::Dumper;
+use File::Basename;
 
 # should be in the structure of
 # section_name => {full_text, update_time}
 my %sections;
-my $sh_dir = "~/Projects/i3_status_bar_perl";
+my $sh_dir = dirname(__FILE__);
 
 add_section('keyboard_layout', 'keyboard_layout.sh', update_time => 4, format => 'KBD[%]');
 #add_section('keyboard_layout', 'KBD [' . 'setxkbmap -query | sed -En "s/layout:\s+(..)/\1/p"' . ']', 10);
