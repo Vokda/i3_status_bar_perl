@@ -15,6 +15,9 @@ add_section('keyboard_layout', 'keyboard_layout.sh', update_time => 4, format =>
 add_section('loadavg', 'loadavg.sh', update_time => 5);
 add_section('vpn', 'is_on_vpn.sh', update_time => 600, format => 'On VPN: %');
 add_section('date_time', "date_time.sh");
+add_section('gpu_temp', "gpu_temp.sh", update_time => 5, format => 'GPU %c');
+add_section('cpu_temp', "cpu_temp.sh", update_time => 5, format => 'CPU Cores 0[%c] 1[%c] 2[%c] 3[%c]');
+
 
 # don't buffer output. Print outs are messed with if sleep is used.
 $| = 1;
@@ -30,7 +33,7 @@ while(1)
 
 	update();
 
-	to_json(qw(vpn keyboard_layout loadavg date_time));
+	to_json(qw(vpn keyboard_layout cpu_temp gpu_temp loadavg date_time));
 
 	print "],\n";
 	sleep 1;
@@ -105,7 +108,15 @@ sub format_full_text
 	my ($full_text, $format) = @_;
 	if($format)
 	{
-		$format =~ s/(.+)?%(.+)?/$1$full_text$2/;
+		my $c = () = $format =~ /%/g; # count number of %
+		if($c > 1)
+		{
+			map { $format =~ s/%/$_/ } split(' ', $full_text);
+		}
+		else
+		{
+			$format =~ s/(.+)?%(.+)?/$1$full_text$2/;
+		}
 		return $format;
 	}
 	return $full_text

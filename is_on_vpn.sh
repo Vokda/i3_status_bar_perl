@@ -1,7 +1,7 @@
 #!/bin/sh
 
 vpn=$(ip link show | grep tun0)
-if [ "tun0" = "$vpn" ];
+if [ -n "$vpn" ];
 then
 	echo 'true'
 else
