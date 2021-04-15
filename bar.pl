@@ -1,5 +1,7 @@
 #!/usr/bin/perl
 
+# TODO update time = -1 -> wait for signal SIGUSR1 containing something like {section_id => full_text}
+
 use warnings;
 use strict;
 use Data::Dumper;
