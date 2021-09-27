@@ -6,11 +6,14 @@ use warnings;
 use strict;
 use Data::Dumper;
 use File::Basename;
+use lib '.';
+use job_scheduler;
 
 # should be in the structure of
 # section_name => {full_text, update_time}
 my %sections;
 my $sh_dir = dirname(__FILE__);
+my $job_scheduler = new job_scheduler();
 #my $ongoing = 0; # if signal occurs while ongoing = 1 erase old work and redo
 
 add_section('keyboard_layout', 'keyboard_layout.sh', update_time => 0, format => 'KBD[%]');
@@ -19,6 +22,8 @@ add_section('vpn', 'is_on_vpn.sh', update_time => 0, format => 'On VPN: %');
 add_section('date_time', "date_time.sh", update_time => 0);
 add_section('gpu_temp', "gpu_temp.sh", update_time => 5, format => 'GPU %c');
 add_section('cpu_temp', "cpu_temp.sh", update_time => 5, format => 'CPU Cores 0[%c] 1[%c] 2[%c] 3[%c]');
+
+$job_scheduler->list_jobs();
 
 # signal handling for IPC
 sub handle_signal
@@ -58,7 +63,10 @@ sub loop
 	`echo '$bar_text' | jq; echo $?` ;
 	if ($?)
 	{
+		open(my $err_fh, '>>', 'error.log') or die "could not open error.log";
+		print $err_fh `echo '$bar_text'| jq`;
 		$bar_text = "[\"name\":\"error\", \"full_text\":\"$?\"]";
+		close $err_fh;
 	}
 	$bar_text .= ",\n";
 	print $bar_text;
@@ -109,7 +117,8 @@ sub add_section
 
 	$args{update_time} //= 1; #update every seconds by default
 	my $is_sh = $cmd =~ /.+\.sh/ ? 1 : 0;
-	$sections{$name} = {
+	
+	my $section = {
 		cmd => $cmd, 
 		full_text => '', 
 		update_time => $args{update_time}, 
@@ -118,6 +127,9 @@ sub add_section
 		is_sh => $is_sh,
 		format => $args{format}
 	};
+	$sections{$name} = $section;
+	
+	$job_scheduler->add_job($section);
 }
 
 sub sh
