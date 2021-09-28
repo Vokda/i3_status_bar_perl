@@ -5,14 +5,12 @@
 use warnings;
 use strict;
 use Data::Dumper;
-use File::Basename;
 use lib '.';
 use job_scheduler;
 
 # should be in the structure of
 # section_name => {full_text, update_time}
 my %sections;
-my $sh_dir = dirname(__FILE__);
 my $job_scheduler = new job_scheduler();
 #my $ongoing = 0; # if signal occurs while ongoing = 1 erase old work and redo
 
@@ -76,6 +74,7 @@ sub loop
 sub update
 {
 	my $override = shift;
+	$job_scheduler->run_jobs($override);
 	for my $k (keys %sections)
 	{
 		my $update_time = $sections{$k}->{update_time} // 0;
@@ -129,7 +128,7 @@ sub add_section
 	};
 	$sections{$name} = $section;
 	
-	$job_scheduler->add_job($section);
+	$job_scheduler->add_job(%$section);
 }
 
 sub sh

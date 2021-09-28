@@ -20,39 +20,62 @@ sub new
 sub add_job
 {
 	my $self = shift;
-	warn Dumper @_;
 	my %args = @_;
 	warn Dumper \%args;
-	die;
 	my $job_data = {
 		priority => $args{update_time},
 		time_since_update => $args{time_since_update},
 		cmd => $args{cmd}
 	};
 	my $job = new job($job_data);
-	my @jobs = @{$self->{jobs}};
-	if(not @jobs)
+	if(not scalar @{$self->{jobs}})
 	{
-		push(@jobs, $job);
+		push(@{$self->{jobs}}, $job);
 	}
 	else
 	{
-		for(my $i = 0; $i < scalar @jobs; $i++)
+		my $pushed = 0;
+		for(my $i = 0; $i < scalar @{$self->{jobs}}; $i++)
 		{
-			my $prio = $jobs[$i]->{priority};
+			my $i_job = $self->{jobs}->[$i];
+			my $prio = $i_job->{priority};
 			if($prio >= $job_data->{priority})
 			{
-				splice(@jobs, $i, 0, $job);
+				splice(@{$self->{jobs}}, $i, 0, $job);
+				$pushed = 1;
+				last;
 			}
 		}
+		push(@{$self->{jobs}}, $job) unless $pushed;
 	}
+	$self->list_jobs();
 }
 
 sub list_jobs
 {
 	my $self = shift;
 	use Data::Dumper;
-	warn Dumper $self->{jobs};
+	warn Dumper "Jobs: ", $self->{jobs};
+	warn Dumper "-----";
+}
+
+sub get_jobs
+{
+	my $self = shift;
+	return $self->{jobs};
+}
+
+sub exec
+{
+	my $self = shift;
+	my $override = shift;
+	if($override)
+	{
+		for(my $job (@{$self->{jobs}}))
+		{
+			$job->exec();
+		}
+	}
 }
 
 1;
