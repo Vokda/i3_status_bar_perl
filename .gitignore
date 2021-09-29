@@ -1,3 +1,4 @@
 bar.sh
 error.log
-debug.log
+debug/i3*
+debug/debug.log

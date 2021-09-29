@@ -23,8 +23,7 @@ sub exec
 	die ";;$shell_out" unless $shell_out;
 	chomp $shell_out;
 
-	$self->{raw_output} = $shell_out;
+	$self->{full_text} = $shell_out;
 }
-
 
 1;

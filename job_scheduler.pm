@@ -2,12 +2,13 @@ package job_scheduler;
 
 use job;
 use Data::Dumper;
+use Time::HiRes qw(gettimeofday tv_interval);
 use warnings;
 use strict;
 
 # 1 second at most so the timer can update once a second
-my $max_time = 1; 
-my $time_used = 0;
+my $max_time = 1;
+my $ticks = 1;
 
 sub new
 {
@@ -21,11 +22,14 @@ sub add_job
 {
 	my $self = shift;
 	my %args = @_;
-	warn Dumper \%args;
 	my $job_data = {
-		priority => $args{update_time},
+		name => $args{name},
+		update_time => $args{update_time},
+		priority => $args{update_time}, # TODO
 		time_since_update => $args{time_since_update},
-		cmd => $args{cmd}
+		cmd => $args{cmd},
+		avg_time => 0, # avg time to execute job
+		update => 1
 	};
 	my $job = new job($job_data);
 	if(not scalar @{$self->{jobs}})
@@ -48,7 +52,7 @@ sub add_job
 		}
 		push(@{$self->{jobs}}, $job) unless $pushed;
 	}
-	$self->list_jobs();
+	#$self->list_jobs();
 }
 
 sub list_jobs
@@ -69,13 +73,31 @@ sub exec
 {
 	my $self = shift;
 	my $override = shift;
-	if($override)
+	my $accumulated_time = 0;
+	if($override) # mostly only used for first run
 	{
-		for(my $job (@{$self->{jobs}}))
+		for my $job (@{$self->{jobs}})
 		{
 			$job->exec();
 		}
 	}
-}
+	else
+	{
+		for my $job (@{$self->{jobs}})
+		{
+			last if($max_time < $accumulated_time + $job->{avg_time});
+			next if($job->{time_since_update} < $job->{update_time});
 
+			my $t = [gettimeofday];
+			$job->exec();
+			my $interval = tv_interval($t);
+			$job->{time_since_update} += $interval;
+			$accumulated_time += $interval;
+			my $avg = $job->{avg_time};
+			$job->{avg_time} = $avg + (($interval - $avg) / $ticks);
+			$job->{update}++;
+		}
+	}
+	$ticks++;
+}
 1;

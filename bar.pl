@@ -5,7 +5,8 @@
 use warnings;
 use strict;
 use Data::Dumper;
-use lib '.';
+use File::Basename;
+use lib dirname(__FILE__);
 use job_scheduler;
 
 # should be in the structure of
@@ -21,12 +22,12 @@ add_section('date_time', "date_time.sh", update_time => 0);
 add_section('gpu_temp', "gpu_temp.sh", update_time => 5, format => 'GPU %c');
 add_section('cpu_temp', "cpu_temp.sh", update_time => 5, format => 'CPU Cores 0[%c] 1[%c] 2[%c] 3[%c]');
 
-$job_scheduler->list_jobs();
+#$job_scheduler->list_jobs();
 
 # signal handling for IPC
 sub handle_signal
 {
-	loop(1);
+	update(1);
 }
 
 $SIG{USR1} = \&handle_signal;
@@ -74,21 +75,15 @@ sub loop
 sub update
 {
 	my $override = shift;
-	$job_scheduler->run_jobs($override);
-	for my $k (keys %sections)
+	$job_scheduler->exec($override);
+	for my $job (@{$job_scheduler->get_jobs()})
 	{
-		my $update_time = $sections{$k}->{update_time} // 0;
-		my $time_since_update = $sections{$k}->{time_since_update};
-		if( ($time_since_update > $update_time ) or $override) 
+		if($job->{update})
 		{
-			my $cmd = $sections{$k}->{cmd};
-			my $result = sh($cmd, $sections{$k}->{is_sh});
-			$sections{$k}->{full_text} = format_full_text($result, $sections{$k}->{format});
-			$sections{$k}->{time_since_update} = 0;
-		}
-		else
-		{
-			$sections{$k}->{time_since_update}++;
+			my $section = $sections{$job->{name}};
+			$section->{full_text} = format_full_text($job->{full_text}, $section->{format});
+			$section->{time_since_update} = 0;
+			$job->{update} = 0;
 		}
 	}
 }
@@ -115,15 +110,15 @@ sub add_section
 	my %args = @_;
 
 	$args{update_time} //= 1; #update every seconds by default
-	my $is_sh = $cmd =~ /.+\.sh/ ? 1 : 0;
 	
+	my $id = scalar keys %sections;
 	my $section = {
+		name => $name,
 		cmd => $cmd, 
 		full_text => '', 
 		update_time => $args{update_time}, 
 		# just some big number so that everything updates first loop
 		time_since_update => 9999999999, 
-		is_sh => $is_sh,
 		format => $args{format}
 	};
 	$sections{$name} = $section;
@@ -131,18 +126,10 @@ sub add_section
 	$job_scheduler->add_job(%$section);
 }
 
-sub sh
-{
-	my ($cmd, $is_sh) = @_;
-	my $shell_out = $is_sh ? `$sh_dir/$cmd` : `$cmd`;
-	die ";;$shell_out" unless $shell_out;
-	chomp $shell_out;
-	return $shell_out;
-}
-
 sub format_full_text
 {
 	my ($full_text, $format) = @_;
+	$full_text =~ s/\n//; # newlines are a big no-no!
 	if($format and $full_text)
 	{
 		my $c = () = $format =~ /%/g; # count number of %
@@ -152,18 +139,9 @@ sub format_full_text
 		}
 		else
 		{
-			$format =~ s/(.+)?%(.+)?/$1$full_text$2/;
+			$format =~ s/(.*)%(.*)/$1$full_text$2/;
 		}
 		return $format;
 	}
 	return $full_text
 }
-
-#use Timer::Simple();
-#my $long_wait;
-sub get_weather
-{
-	my $time = localtime;
-	#if ($time > 
-}
-
