@@ -1,3 +1,3 @@
 #!/bin/sh
 
-kill -s 10 $(pgrep bar.pl) 
+kill -s 10 $(pgrep -f bar.pl) 

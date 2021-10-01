@@ -1,6 +1,7 @@
 #!/usr/bin/perl
 
-# TODO update-time = 0 -> wait for signal SIGUSR1 
+# update-time = 0 -> wait for signal SIGUSR1 
+# update-time > 0 -> update every x seconds
 
 use warnings;
 use strict;
@@ -18,7 +19,7 @@ my $job_scheduler = new job_scheduler();
 add_section('keyboard_layout', 'keyboard_layout.sh', update_time => 0, format => 'KBD[%]');
 add_section('loadavg', 'loadavg.sh', update_time => 5);
 add_section('vpn', 'is_on_vpn.sh', update_time => 0, format => 'On VPN: %');
-add_section('date_time', "date_time.sh", update_time => 0);
+add_section('date_time', "date_time.sh", update_time => 1);
 add_section('gpu_temp', "gpu_temp.sh", update_time => 5, format => 'GPU %c');
 add_section('cpu_temp', "cpu_temp.sh", update_time => 5, format => 'CPU Cores 0[%c] 1[%c] 2[%c] 3[%c]');
 
@@ -27,7 +28,7 @@ add_section('cpu_temp', "cpu_temp.sh", update_time => 5, format => 'CPU Cores 0[
 # signal handling for IPC
 sub handle_signal
 {
-	update(1);
+	update(override => 1, signal_only => 1);
 }
 
 $SIG{USR1} = \&handle_signal;
@@ -41,7 +42,7 @@ print "[\n";
 print "[],\n";
 
 # just update everything once
-loop(1);
+update(override => 1);
 
 while(1) 
 {
@@ -55,7 +56,8 @@ sub loop
 {
 	my $bar_text = '';
 	$bar_text = '[';
-	update(shift);
+	my $override = shift;
+	update(override => $override);
 	$bar_text .= to_json(qw(vpn keyboard_layout cpu_temp gpu_temp loadavg date_time));
 	$bar_text .=  "]";
 	# check json 
@@ -74,8 +76,8 @@ sub loop
 
 sub update
 {
-	my $override = shift;
-	$job_scheduler->exec($override);
+	my %args = @_;
+	$job_scheduler->exec(override => $args{override});
 	for my $job (@{$job_scheduler->get_jobs()})
 	{
 		if($job->{update})
