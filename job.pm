@@ -12,6 +12,8 @@ sub new
 {
 	my ($class, $args) = @_;
 	my %vars = %{$args};
+	use Data::Dumper;
+	warn Dumper \@_;
 	my $self = bless \%vars, $class;
 }
 
@@ -25,5 +27,4 @@ sub exec
 
 	$self->{full_text} = $shell_out;
 }
-
 1;

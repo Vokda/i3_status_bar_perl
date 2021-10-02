@@ -10,20 +10,22 @@ use File::Basename;
 use lib dirname(__FILE__);
 use job_scheduler;
 
-# should be in the structure of
-# section_name => {full_text, update_time}
 my %sections;
 my $job_scheduler = new job_scheduler();
-#my $ongoing = 0; # if signal occurs while ongoing = 1 erase old work and redo
 
-add_section('keyboard_layout', 'keyboard_layout.sh', update_time => 0, format => 'KBD[%]');
-add_section('loadavg', 'loadavg.sh', update_time => 5);
-add_section('vpn', 'is_on_vpn.sh', update_time => 0, format => 'On VPN: %');
-add_section('date_time', "date_time.sh", update_time => 1);
-add_section('gpu_temp', "gpu_temp.sh", update_time => 5, format => 'GPU %c');
-add_section('cpu_temp', "cpu_temp.sh", update_time => 5, format => 'CPU Cores 0[%c] 1[%c] 2[%c] 3[%c]');
+# read sections conf
+my $conf_file = dirname(__FILE__) . '/cmds/cmds.conf';
+open(my $conf_fh, '<', $conf_file) or die "could not open $conf_file";
+while(my $row = <$conf_fh>)
+{
+	if($row !~ m/^#|^$/)
+	{
+		my @sec_params = eval $row;
+		warn Dumper \@sec_params;
+		add_section(@sec_params);
+	}
+}
 
-#$job_scheduler->list_jobs();
 
 # signal handling for IPC
 sub handle_signal
@@ -78,13 +80,15 @@ sub update
 {
 	my %args = @_;
 	$job_scheduler->exec(override => $args{override});
-	for my $job (@{$job_scheduler->get_jobs()})
+	my $jobs = $job_scheduler->get_jobs();
+	for my $k (keys %$jobs)
 	{
+		my $job = $jobs->{$k};
 		if($job->{update})
 		{
 			my $section = $sections{$job->{name}};
 			$section->{full_text} = format_full_text($job->{full_text}, $section->{format});
-			$section->{time_since_update} = 0;
+			$job->{time_since_update} = 0;
 			$job->{update} = 0;
 		}
 	}
@@ -112,18 +116,21 @@ sub add_section
 	my %args = @_;
 
 	$args{update_time} //= 1; #update every seconds by default
+	$args{priority} //=1;
 	
 	my $id = scalar keys %sections;
+	die Dumper \%args unless($cmd and $name);
 	my $section = {
 		name => $name,
 		cmd => $cmd, 
 		full_text => '', 
 		update_time => $args{update_time}, 
+		priority => $args{priority},
 		# just some big number so that everything updates first loop
 		time_since_update => 9999999999, 
 		format => $args{format}
 	};
-	$sections{$name} = $section;
+	$sections{$name} = {format => $section->{format}};
 	
 	$job_scheduler->add_job(%$section);
 }

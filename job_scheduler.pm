@@ -16,7 +16,7 @@ sub new
 {
 	my ($class, $args) = @_;
 	my $self = bless {
-		jobs => []
+		jobs => {}
 	}, $class;
 }
 
@@ -27,34 +27,32 @@ sub add_job
 	my $job_data = {
 		name => $args{name},
 		update_time => $args{update_time},
-		priority => $args{update_time}, # TODO
+		original_priority => $args{priority},
+		priority => $args{priority}, # TODO
 		time_since_update => $args{time_since_update},
 		cmd => $args{cmd},
 		avg_time => 0, # avg time to execute job
 		update => 1
 	};
+	die unless $args{cmd};
 	my $job = new job($job_data);
-	if(not scalar @{$self->{jobs}})
+	my $nr_jobs = scalar keys %{$self->{jobs}};
+	my $pushed = 0;
+
+	my $prio = $job->{priority};
+	while(1)
 	{
-		push(@{$self->{jobs}}, $job);
-	}
-	else
-	{
-		my $pushed = 0;
-		for(my $i = 0; $i < scalar @{$self->{jobs}}; $i++)
+		if(not $self->{jobs}->{$prio})
 		{
-			my $i_job = $self->{jobs}->[$i];
-			my $prio = $i_job->{priority};
-			if($prio >= $job_data->{priority})
-			{
-				splice(@{$self->{jobs}}, $i, 0, $job);
-				$pushed = 1;
-				last;
-			}
+			$self->{jobs}->{$prio} = $job;
+			last;
 		}
-		push(@{$self->{jobs}}, $job) unless $pushed;
+		else
+		{
+			$prio++;
+			next;
+		}
 	}
-	#$self->list_jobs();
 }
 
 sub list_jobs
@@ -80,8 +78,9 @@ sub exec
 	{
 		if($args{signal_only})
 		{
-			for my $job (@{$self->{jobs}})
+			for my $k (keys %{$self->{jobs}})
 			{
+				my $job = $self->{jobs}->{$k};
 				if($job->{update_time} == 0)
 				{
 					$self->_exec_job(job => $job, accumulated_time => \$accumulated_time );
@@ -90,16 +89,18 @@ sub exec
 		}
 		else
 		{
-			for my $job (@{$self->{jobs}})
+			for my $k (keys %{$self->{jobs}})
 			{
+				my $job = $self->{jobs}->{$k};
 				$self->_exec_job(job => $job, accumulated_time => \$accumulated_time );
 			}
 		}
 	}
 	else
 	{
-		for my $job (@{$self->{jobs}})
+		for my $k (keys %{$self->{jobs}})
 		{
+			my $job = $self->{jobs}->{$k};
 			last if($accumulated_time > $max_time);
 			next if($job->{update_time} == 0 or $max_time < $accumulated_time + $job->{avg_time});
 			next if($job->{time_since_update} < $job->{update_time});
