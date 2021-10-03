@@ -5,13 +5,14 @@
 
 use warnings;
 use strict;
+use Time::HiRes qw(gettimeofday tv_interval);
 use Data::Dumper;
 use File::Basename;
 use lib dirname(__FILE__);
 use job_scheduler;
 use Log::Log4perl qw(:easy);
 
-Log::Log4perl->init('logs/conf');
+Log::Log4perl->init(dirname(__FILE__) . '/logs/conf');
 our $log = Log::Log4perl::get_logger("bar");
 
 $log->info("Status bar start");
@@ -62,6 +63,7 @@ while(1)
 # so no section is left empty 
 sub loop
 {
+	my $loop_start_t = [gettimeofday];
 	my $bar_text = '';
 	$bar_text = '[';
 	my $override = shift;
@@ -79,7 +81,8 @@ sub loop
 	}
 	$bar_text .= ",\n";
 	print $bar_text;
-	sleep 1;
+	my $loop_time = tv_interval($loop_start_t);
+	$job_scheduler->time_since_last_loop($loop_time);
 }
 
 sub update
@@ -133,7 +136,7 @@ sub add_section
 		update_time => $args{update_time}, 
 		priority => $args{priority},
 		# just some big number so that everything updates first loop
-		time_since_update => 9999999999, 
+		time_since_update => 999.0, 
 		format => $args{format}
 	};
 	$sections{$name} = {format => $section->{format}};

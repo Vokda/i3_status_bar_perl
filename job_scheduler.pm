@@ -75,7 +75,8 @@ sub exec
 {
 	my $self = shift;
 	my %args = @_;
-	my $accumulated_time = 0;
+	my $accumulated_time = 0.0;
+	my $t = [gettimeofday];
 	if($args{override}) # mostly only used for first run
 	{
 		if($args{signal_only})
@@ -85,7 +86,7 @@ sub exec
 				my $job = $self->{jobs}->{$k};
 				if($job->{update_time} == 0)
 				{
-					$self->_exec_job(job => $job, accumulated_time => \$accumulated_time );
+					$self->_exec_job(job => $job);
 				}
 			}
 		}
@@ -94,7 +95,7 @@ sub exec
 			for my $k (keys %{$self->{jobs}})
 			{
 				my $job = $self->{jobs}->{$k};
-				$self->_exec_job(job => $job, accumulated_time => \$accumulated_time );
+				$self->_exec_job(job => $job);
 			}
 		}
 	}
@@ -103,32 +104,41 @@ sub exec
 		for my $k (sort {$a <=> $b} keys %{$self->{jobs}})
 		{
 			my $job = $self->{jobs}->{$k};
-			warn Dumper {job => $k, acc => $accumulated_time, job_info => $job};
-
 			last if($accumulated_time > $max_time); # no more time, jobs will have to wait for next update
+			next if($job->{update_time} == 0); # only update at signal
+
 			# it hasn't been long enough since last update.
 			# next if($job->{update_time} > 0 and $job->{time_since_update} < $job->{update_time});
-			if($job->{time_since_update} < $job->{update_time})
+			if($job->{time_since_update} <= $job->{update_time})
 			{
-				warn "it's not been long enough";
-				warn Dumper $job;
 				next;
 			}
 
-			$self->_exec_job(job => $job, accumulated_time => \$accumulated_time );
-
-			warn "normal update";
+			$self->_exec_job(job => $job);
 		}
 	}
 
-	map {$_->{time_since_update} += $accumulated_time} values %{$self->{jobs}};
 
 			
+	$ticks++;
+	my $interval = tv_interval($t);
+	$accumulated_time += $interval;
+	for my $k  (keys %{$self->{jobs}})
+	{
+		my $job = $self->{jobs}->{$k};
+		$job->{time_since_update} += $accumulated_time;
+	}
 	if($accumulated_time > $max_time)	
 	{
 		$log->info("Poor scheduling: $accumulated_time > max time ($max_time)");
 	}
-	$ticks++;
+}
+
+sub time_since_last_loop
+{
+	my $self = shift;
+	my $t = shift;
+	map {$_->{time_since_update} += $t} values %{$self->{jobs}};
 }
 
 sub _exec_job
@@ -140,7 +150,7 @@ sub _exec_job
 	my $t = [gettimeofday];
 	$job->exec();
 	my $interval = tv_interval($t);
-	$args->{accumulated_time} += $interval;
+
 	my $avg = $job->{avg_time};
 	$job->{avg_time} = $avg + (($interval - $avg) / $ticks);
 	$job->{updated} = 1;
