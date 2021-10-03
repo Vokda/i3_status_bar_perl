@@ -57,6 +57,12 @@ The logs are not filled with a lot at the moment, but will be expanded in the fu
 If the job scheduling were to run very slow, warnings may be shown there.
 Jobs scheduled can be seen in the beginning of the log.
 
+# IPC
+Jobs can wait for a signal to update instead of doing it periodically. 
+For example if you don't want or need to update it very often. 
+To do this send the signal SIGUSR1 to the program, you can use `send_signal.sh` for this, and set
+the `update_time` to 0.
+
 # Debugging
 Run `debug/test.sh` for help with debugging
 
