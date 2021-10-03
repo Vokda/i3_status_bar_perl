@@ -9,6 +9,12 @@ use Data::Dumper;
 use File::Basename;
 use lib dirname(__FILE__);
 use job_scheduler;
+use Log::Log4perl qw(:easy);
+
+Log::Log4perl->init('logs/conf');
+our $log = Log::Log4perl::get_logger("bar");
+
+$log->info("Status bar start");
 
 my %sections;
 my $job_scheduler = new job_scheduler();
@@ -21,7 +27,6 @@ while(my $row = <$conf_fh>)
 	if($row !~ m/^#|^$/)
 	{
 		my @sec_params = eval $row;
-		warn Dumper \@sec_params;
 		add_section(@sec_params);
 	}
 }
@@ -30,6 +35,7 @@ while(my $row = <$conf_fh>)
 # signal handling for IPC
 sub handle_signal
 {
+	$log->info("Signal received!");
 	update(override => 1, signal_only => 1);
 }
 
@@ -79,17 +85,17 @@ sub loop
 sub update
 {
 	my %args = @_;
-	$job_scheduler->exec(override => $args{override});
+	$job_scheduler->exec(@_);
 	my $jobs = $job_scheduler->get_jobs();
 	for my $k (keys %$jobs)
 	{
 		my $job = $jobs->{$k};
-		if($job->{update})
+		if($job->{updated})
 		{
 			my $section = $sections{$job->{name}};
 			$section->{full_text} = format_full_text($job->{full_text}, $section->{format});
 			$job->{time_since_update} = 0;
-			$job->{update} = 0;
+			$job->{updated} = 0;
 		}
 	}
 }

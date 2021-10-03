@@ -2,3 +2,4 @@ bar.sh
 error.log
 debug/i3*
 debug/debug.log
+logs/log

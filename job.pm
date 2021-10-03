@@ -12,8 +12,6 @@ sub new
 {
 	my ($class, $args) = @_;
 	my %vars = %{$args};
-	use Data::Dumper;
-	warn Dumper \@_;
 	my $self = bless \%vars, $class;
 }
 
@@ -22,6 +20,7 @@ sub exec
 	my $self = shift;
 	my $cmd = $self->{cmd};
 	my $shell_out =`$cmd_dir/$cmd`;
+	$self->{time_since_update} = 0;
 	die ";;$shell_out" unless $shell_out;
 	chomp $shell_out;
 

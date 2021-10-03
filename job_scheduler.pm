@@ -6,7 +6,7 @@ use Time::HiRes qw(gettimeofday tv_interval);
 use warnings;
 use strict;
 use Log::Log4perl qw(:easy);
-Log::Log4perl->easy_init($WARN);
+our $log = Log::Log4perl::get_logger("job_scheduler");
 
 # 1 second at most so the timer can update once a second
 my $max_time = 0.8;
@@ -32,8 +32,10 @@ sub add_job
 		time_since_update => $args{time_since_update},
 		cmd => $args{cmd},
 		avg_time => 0, # avg time to execute job
-		update => 1
+		updated => 1
 	};
+	my $job_data_dumped = '' . sprintf Dumper $job_data;
+	$log->info("Job $job_data->{name} added: $job_data_dumped");
 	die unless $args{cmd};
 	my $job = new job($job_data);
 	my $nr_jobs = scalar keys %{$self->{jobs}};
@@ -98,18 +100,34 @@ sub exec
 	}
 	else
 	{
-		for my $k (keys %{$self->{jobs}})
+		for my $k (sort {$a <=> $b} keys %{$self->{jobs}})
 		{
 			my $job = $self->{jobs}->{$k};
-			last if($accumulated_time > $max_time);
-			next if($job->{update_time} == 0 or $max_time < $accumulated_time + $job->{avg_time});
-			next if($job->{time_since_update} < $job->{update_time});
+			warn Dumper {job => $k, acc => $accumulated_time, job_info => $job};
+
+			last if($accumulated_time > $max_time); # no more time, jobs will have to wait for next update
+			# it hasn't been long enough since last update.
+			# next if($job->{update_time} > 0 and $job->{time_since_update} < $job->{update_time});
+			if($job->{time_since_update} < $job->{update_time})
+			{
+				warn "it's not been long enough";
+				warn Dumper $job;
+				next;
+			}
 
 			$self->_exec_job(job => $job, accumulated_time => \$accumulated_time );
+
+			warn "normal update";
 		}
 	}
+
+	map {$_->{time_since_update} += $accumulated_time} values %{$self->{jobs}};
+
 			
-	WARN "Poor scheduling: $accumulated_time > max time ($max_time)" if($accumulated_time > $max_time);	
+	if($accumulated_time > $max_time)	
+	{
+		$log->info("Poor scheduling: $accumulated_time > max time ($max_time)");
+	}
 	$ticks++;
 }
 
@@ -122,10 +140,9 @@ sub _exec_job
 	my $t = [gettimeofday];
 	$job->exec();
 	my $interval = tv_interval($t);
-	$job->{time_since_update} += $interval;
 	$args->{accumulated_time} += $interval;
 	my $avg = $job->{avg_time};
 	$job->{avg_time} = $avg + (($interval - $avg) / $ticks);
-	$job->{update}++;
+	$job->{updated} = 1;
 }
 1;
