@@ -23,14 +23,21 @@ bar
 # Configuration
 ## Jobs
 The configuration file is used to tell `bar.pl` which jobs to run and their scheduling.
+
 Each line is interpreted as a perl array. (follow the examples below if you are unfamiliar with
 perl arrays)
+
 Each line should be in the structure of
 ('name_of_job', 'job_script', update_time => [seconds], format => 'see below', priority => [1 or higher, higher means lower priority])
+
 First two elements of the array are mandatory. I.e. name and script name are mandatory.
+
 update-time = 0 -> wait for signal SIGUSR1
+
 update-time > 0 -> update every x seconds
+
 Default values for update_time and priority is 1, i.e. update every second and lowest priority
+
 ```
 ('keyboard_layout', 'keyboard_layout.sh', update_time => 0, format => 'KBD[%]');
 ('loadavg', 'loadavg.sh', update_time => 5)
